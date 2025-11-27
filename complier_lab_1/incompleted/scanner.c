@@ -86,8 +86,6 @@ Token* readNumber(void) {
     if (len < MAX_IDENT_LEN) {
       str[len++] = (char)currentChar;
     } else {
-      /* truncate extra digits */
-      /* simply keep reading but do not store beyond buffer */
     }
     readChar();
   }
@@ -175,7 +173,7 @@ Token* getToken(void) {
     /* check for comment start '(*' */
     readChar();
     if (currentChar == '*') {
-      skipCommentParen();
+      skipComment();
       return getToken();
     } else {
       token = makeToken(SB_LPAR, ln, cn);
@@ -363,5 +361,3 @@ int main(int argc, char *argv[]) {
     
   return 0;
 }
-
-
