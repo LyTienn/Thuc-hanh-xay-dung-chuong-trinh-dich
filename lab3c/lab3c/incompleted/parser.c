@@ -208,7 +208,7 @@ void compileProcDecl(void) {
 }
 
 ConstantValue* compileUnsignedConstant(void) {
-  ConstantValue* constValue;
+  ConstantValue* constValue = NULL;
   Object* obj;
 
   switch (lookAhead->tokenType) {
@@ -218,8 +218,8 @@ ConstantValue* compileUnsignedConstant(void) {
     break;
   case TK_IDENT:
     eat(TK_IDENT);
-    // TODO: check if the constant identifier is declared and get its value
-
+    obj = checkDeclaredConstant(currentToken->string);
+    constValue = duplicateConstantValue(obj->constAttrs->value);
     break;
   case TK_CHAR:
     eat(TK_CHAR);
@@ -233,7 +233,7 @@ ConstantValue* compileUnsignedConstant(void) {
 }
 
 ConstantValue* compileConstant(void) {
-  ConstantValue* constValue;
+  ConstantValue* constValue = NULL;
 
   switch (lookAhead->tokenType) {
   case SB_PLUS:
@@ -243,22 +243,24 @@ ConstantValue* compileConstant(void) {
   case SB_MINUS:
     eat(SB_MINUS);
     constValue = compileConstant2();
-    constValue->intValue = - constValue->intValue;
+    if (constValue != NULL && constValue->type == TP_INT) { 
+        constValue->intValue = -constValue->intValue;
+    }
     break;
   case TK_CHAR:
     eat(TK_CHAR);
     constValue = makeCharConstant(currentToken->string[0]);
     break;
   default:
-    constValue = compileConstant2();
+    constValue = compileConstant2(); 
     break;
   }
   return constValue;
 }
 
 ConstantValue* compileConstant2(void) {
-  ConstantValue* constValue;
-  Object* obj;
+  ConstantValue* constValue = NULL;
+  Object* obj = NULL;
 
   switch (lookAhead->tokenType) {
   case TK_NUMBER:
@@ -267,7 +269,18 @@ ConstantValue* compileConstant2(void) {
     break;
   case TK_IDENT:
     eat(TK_IDENT);
-    // TODO: check if the integer constant identifier is declared and get its value
+    obj = lookupObject(currentToken->string);
+    
+    if (obj != NULL && obj->kind == OBJ_CONSTANT) {
+      constValue = duplicateConstantValue(obj->constAttrs->value);
+    } else {
+      if (obj == NULL)
+        error(ERR_UNDECLARED_CONSTANT, currentToken->lineNo, currentToken->colNo);
+      else
+        error(ERR_INVALID_CONSTANT, currentToken->lineNo, currentToken->colNo);
+      
+      constValue = makeIntConstant(0);
+    }
     break;
   default:
     error(ERR_INVALID_CONSTANT, lookAhead->lineNo, lookAhead->colNo);
@@ -277,7 +290,7 @@ ConstantValue* compileConstant2(void) {
 }
 
 Type* compileType(void) {
-  Type* type;
+  Type* type = NULL;
   Type* elementType;
   int arraySize;
   Object* obj;
@@ -285,7 +298,7 @@ Type* compileType(void) {
   switch (lookAhead->tokenType) {
   case KW_INTEGER: 
     eat(KW_INTEGER);
-    type =  makeIntType();
+    type = makeIntType();
     break;
   case KW_CHAR: 
     eat(KW_CHAR); 
@@ -295,9 +308,7 @@ Type* compileType(void) {
     eat(KW_ARRAY);
     eat(SB_LSEL);
     eat(TK_NUMBER);
-
     arraySize = currentToken->value;
-
     eat(SB_RSEL);
     eat(KW_OF);
     elementType = compileType();
@@ -305,7 +316,8 @@ Type* compileType(void) {
     break;
   case TK_IDENT:
     eat(TK_IDENT);
-    // TODO: check if the type idntifier is declared and get its actual type
+    obj = checkDeclaredType(currentToken->string);
+    type = duplicateType(obj->typeAttrs->actualType);
     break;
   default:
     error(ERR_INVALID_TYPE, lookAhead->lineNo, lookAhead->colNo);
@@ -429,9 +441,10 @@ void compileAssignSt(void) {
 }
 
 void compileCallSt(void) {
+  Object* proc; 
   eat(KW_CALL);
   eat(TK_IDENT);
-  // TODO: check if the identifier is a declared procedure
+  proc = checkDeclaredProcedure(currentToken->string);
   compileArguments();
 }
 
@@ -463,10 +476,12 @@ void compileWhileSt(void) {
 }
 
 void compileForSt(void) {
+  Object* var; 
+
   eat(KW_FOR);
   eat(TK_IDENT);
 
-  // TODO: check if the identifier is a variable
+  var = checkDeclaredVariable(currentToken->string);
 
   eat(SB_ASSIGN);
   compileExpression();

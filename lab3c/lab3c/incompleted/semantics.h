@@ -9,6 +9,8 @@
 
 #include "symtab.h"
 
+Object* lookupObject(char *name);
+
 void checkFreshIdent(char *name);
 Object* checkDeclaredIdent(char *name);
 Object* checkDeclaredConstant(char *name);
