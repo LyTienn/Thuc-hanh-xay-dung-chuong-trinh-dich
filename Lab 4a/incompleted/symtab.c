@@ -81,13 +81,15 @@ void freeType(Type* type) {
 }
 
 int sizeOfType(Type* type) {
-  switch (type->typeClass) {
+  // TODO
+  switch (type->typeClass)
+  {
   case TP_INT:
-    return 1; // Int chiếm 1 từ nhớ
+    return INT_SIZE;
   case TP_CHAR:
-    return 1; // Char chiếm 1 từ nhớ
+    return CHAR_SIZE;
   case TP_ARRAY:
-    return type->arraySize * sizeOfType(type->elementType); // Kích thước mảng
+    return (type->arraySize * sizeOfType(type->elementType));
   }
   return 0;
 }
@@ -349,44 +351,47 @@ void exitBlock(void) {
 }
 
 void declareObject(Object* obj) {
-  // TODO: rewrite the function to fill all values of attributes
-  if (obj->kind == OBJ_PARAMETER) {
-    Object* owner = symtab->currentScope->owner;
-    switch (owner->kind) {
+  Object *owner;
+
+  if (symtab->currentScope == NULL)
+    addObject(&(symtab->globalObjectList), obj);
+  else
+  {
+    switch (obj->kind)
+    {
+    case OBJ_VARIABLE:
+      obj->varAttrs->scope = symtab->currentScope;
+      obj->varAttrs->localOffset = symtab->currentScope->frameSize;
+      symtab->currentScope->frameSize += sizeOfType(obj->varAttrs->type);
+      break;
+    case OBJ_PARAMETER:
+      obj->paramAttrs->scope = symtab->currentScope;
+      obj->paramAttrs->localOffset = symtab->currentScope->frameSize;
+      symtab->currentScope->frameSize++;
+      owner = symtab->currentScope->owner;
+      switch (owner->kind)
+      {
+      case OBJ_FUNCTION:
+        addObject(&(owner->funcAttrs->paramList), obj);
+        owner->funcAttrs->paramCount++;
+        break;
+      case OBJ_PROCEDURE:
+        addObject(&(owner->procAttrs->paramList), obj);
+        owner->procAttrs->paramCount++;
+        break;
+      default:
+        break;
+      }
+      break;
     case OBJ_FUNCTION:
-      addObject(&(owner->funcAttrs->paramList), obj);
-      // Offset tham số bắt đầu từ 4 (sau RV, DL, RA, SL)
-      obj->paramAttrs->localOffset = 4 + owner->funcAttrs->paramCount;
-      owner->funcAttrs->paramCount++;
+      obj->funcAttrs->scope->outer = symtab->currentScope;
       break;
     case OBJ_PROCEDURE:
-      addObject(&(owner->procAttrs->paramList), obj);
-      obj->paramAttrs->localOffset = 4 + owner->procAttrs->paramCount;
-      owner->procAttrs->paramCount++;
+      obj->procAttrs->scope->outer = symtab->currentScope;
       break;
     default:
       break;
     }
-    // Tham số cũng được coi là biến trong scope hiện tại
-    addObject(&(symtab->currentScope->objList), obj);
-    obj->paramAttrs->scope = symtab->currentScope;
-    
-    // Mỗi tham số chiếm 1 từ nhớ, tăng frameSize lên
-    symtab->currentScope->frameSize++;
-  }
-  else if (obj->kind == OBJ_VARIABLE) {
-    // Biến bắt đầu tại vị trí frameSize hiện tại (sau tham số)
-    obj->varAttrs->localOffset = symtab->currentScope->frameSize;
-    // Tăng frameSize theo kích thước của biến
-    symtab->currentScope->frameSize += sizeOfType(obj->varAttrs->type);
-    
-    addObject(&(symtab->currentScope->objList), obj);
-    obj->varAttrs->scope = symtab->currentScope;
-  }
-  else {
-    // Các đối tượng khác (Const, Type, Function...) chỉ cần thêm vào list
     addObject(&(symtab->currentScope->objList), obj);
   }
 }
-
-
